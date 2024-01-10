@@ -6,9 +6,36 @@ package tp6;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.sql.SQLException;
+
 class AppTest {
-    @Test void appHasAGreeting() {
+    @Test
+    void appHasAGreeting() {
         App classUnderTest = new App();
         assertNotNull(classUnderTest.getGreeting(), "app should have a greeting");
+    }
+
+    @Test
+    public void testPersistence() {
+        Club club = new Club();
+        club.setFabricant("un nom");
+        club.setPoids(10.3);
+
+        EntityManagerImpl em = new EntityManagerImpl();
+        em.persist(club);
+    }
+
+    @Test
+    public void testFind() throws SQLException {
+
+        Club club = new Club();
+        club.setFabricant("un  nom");
+        club.setPoids(10.3);
+
+        EntityManagerImpl em = new EntityManagerImpl();
+        em.persist(club);
+        Club trouve = em.<Club>find(Club.class, club.getId());
+        assertNotNull(trouve);
+        assertEquals(club.getFabricant(), trouve.getFabricant());
     }
 }
