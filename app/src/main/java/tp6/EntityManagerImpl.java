@@ -88,32 +88,24 @@ public class EntityManagerImpl implements EntityManager {
 
     @Override
     public <T> T merge(T entity) {
-        if (entity instanceof Club) {
-            Club club = (Club) entity;
+        Class<?> entityClass = entity.getClass();
 
-            String sql = "UPDATE Club SET version=? ,fabricant=?, poids=? WHERE id=?";
+        Pair<String, List<String>> UpdateData = buildUpdateSql(entityClass);
+        String sqlUpdate = UpdateData.getKey();
+        List<String> fieldNames = UpdateData.getValue();
 
-            try (PreparedStatement statement = connection.prepareStatement(sql)) {
-                try {
-                    Field versionField = Club.class.getDeclaredField("version");
-                    versionField.setAccessible(true);
-                    int currentVersion = (int) versionField.get(club);
-
-                    statement.setInt(1, currentVersion);
-                    statement.setString(2, club.getFabricant());
-                    statement.setDouble(3, club.getPoids());
-                    statement.setLong(4, club.getId());
-                } catch (NoSuchFieldException | IllegalAccessException e) {
-                    e.printStackTrace();
+        try (PreparedStatement statement = connection.prepareStatement(sqlUpdate)) {
+            for (int i = 0; i < fieldNames.size(); i++) {
+                if (fieldNames.get(i) != "id") {
+                    Object fieldValue = getFieldValue(entity, fieldNames.get(i));
+                    statement.setObject(i + 1, fieldValue);
                 }
-
-                statement.executeUpdate();
-                connection.commit();
-            } catch (SQLException e) {
-                e.printStackTrace();
+                statement.setObject(fieldNames.size(), getFieldValue(entity, "id"));
             }
-        } else {
-            throw new IllegalArgumentException("L'entité n'est pas une instance de Club");
+            statement.executeUpdate();
+            connection.commit();
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
         return entity;
     }
@@ -179,7 +171,6 @@ public class EntityManagerImpl implements EntityManager {
         Field[] fields = entityClass.getDeclaredFields();
         for (Field field : fields) {
             String columnName;
-            String columnType;
             if (field.isAnnotationPresent(Column.class)) {
                 Column column = field.getAnnotation(Column.class);
                 columnName = column.name().isEmpty() ? field.getName() : column.name();
@@ -228,6 +219,31 @@ public class EntityManagerImpl implements EntityManager {
         sql.append(")");
 
         return sql.toString();
+    }
+
+    private Pair<String, List<String>> buildUpdateSql(Class<?> entityClass) {
+        if (!entityClass.isAnnotationPresent(Entity.class)) {
+            throw new IllegalArgumentException("La classe " + entityClass.getName() + " n'est pas une entité");
+        }
+        String tableName = entityClass.getSimpleName();
+        StringBuilder sql = new StringBuilder("UPDATE " + tableName + " SET ");
+        List<String> fieldNames = new ArrayList<>();
+
+        Field[] fields = entityClass.getDeclaredFields();
+        for (Field field : fields) {
+            String columnName;
+            String columnType;
+            if (field.isAnnotationPresent(Column.class)) {
+                Column column = field.getAnnotation(Column.class);
+                columnName = column.name().isEmpty() ? field.getName() : column.name();
+                sql.append(columnName).append("=? ,");
+                fieldNames.add(field.getName());
+            }
+        }
+        sql.setLength(sql.length() - 1);
+        sql.append("WHERE id=?");
+
+        return new Pair<>(sql.toString(), fieldNames);
     }
 
     private String getSqlType(Class<?> javaType) {
