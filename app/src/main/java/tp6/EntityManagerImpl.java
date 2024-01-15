@@ -112,31 +112,29 @@ public class EntityManagerImpl implements EntityManager {
 
     @Override
     public <T> T find(Class<T> entityClass, Object primaryKey) {
-        if (entityClass == Club.class) {
-            Club club = null;
-            String sql = "SELECT * FROM Club WHERE id = ?";
 
-            try (PreparedStatement statement = connection.prepareStatement(sql)) {
-                statement.setLong(1, (Long) primaryKey);
+        Object entity = null;
 
-                try (ResultSet resultSet = statement.executeQuery()) {
-                    if (resultSet.next()) {
-                        club = new Club();
-                        setFieldValue(club, "id", resultSet.getLong("id"));
-                        setFieldValue(club, "version", resultSet.getInt("version"));
-                        setFieldValue(club, "fabricant", resultSet.getString("fabricant"));
-                        setFieldValue(club, "poids", resultSet.getDouble("poids"));
+        Pair<String, List<String>> SelectData = buildSelectSql(entityClass);
+        String sqlSelect = SelectData.getKey();
+        List<String> fieldNames = SelectData.getValue();
+
+        try (PreparedStatement statement = connection.prepareStatement(sqlSelect)) {
+            statement.setLong(1, (Long) primaryKey);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    entity = entityClass.getDeclaredConstructor().newInstance();
+                    for (int i = 0; i < fieldNames.size(); i++) {
+                        setFieldValue(entity, fieldNames.get(i), resultSet.getObject(fieldNames.get(i)));
                     }
                 }
-            } catch (SQLException e) {
-                e.printStackTrace();
             }
-
-            return entityClass.cast(club);
-        } else {
-            throw new IllegalArgumentException(
-                    "La gestion de l'entité " + entityClass.getName() + " n'est pas implémentée.");
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+
+        return entityClass.cast(entity);
     }
 
     private void setFieldValue(Object obj, String fieldName, Object value) {
@@ -243,6 +241,25 @@ public class EntityManagerImpl implements EntityManager {
         sql.setLength(sql.length() - 1);
         sql.append("WHERE id=?");
 
+        return new Pair<>(sql.toString(), fieldNames);
+    }
+
+    private Pair<String, List<String>> buildSelectSql(Class<?> entityClass) {
+        if (!entityClass.isAnnotationPresent(Entity.class)) {
+            throw new IllegalArgumentException("La classe " + entityClass.getName() + " n'est pas une entité");
+        }
+        String tableName = entityClass.getSimpleName();
+        StringBuilder sql = new StringBuilder("SELECT * FROM " + tableName);
+        List<String> fieldNames = new ArrayList<>();
+
+        Field[] fields = entityClass.getDeclaredFields();
+        for (Field field : fields) {
+            String columnName;
+            if (field.isAnnotationPresent(Column.class)) {
+                fieldNames.add(field.getName());
+            }
+        }
+        sql.append(" WHERE id=?");
         return new Pair<>(sql.toString(), fieldNames);
     }
 

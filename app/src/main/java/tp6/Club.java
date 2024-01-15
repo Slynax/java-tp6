@@ -7,11 +7,12 @@ import javax.persistence.Id;
 public class Club {
     @Id
     private long id;
-
     private int version;
-
     private String fabricant;
     private Double poids;
+
+    public Club() {
+    }
 
     public long getId() {
         return id;
