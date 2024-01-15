@@ -1,5 +1,6 @@
 package tp6;
 
+import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 
@@ -7,8 +8,11 @@ import javax.persistence.Id;
 public class Club {
     @Id
     private long id;
+    @Column
     private int version;
+    @Column
     private String fabricant;
+    @Column
     private Double poids;
 
     public Club() {

@@ -4,6 +4,7 @@ import java.sql.*;
 import java.util.List;
 import java.util.Map;
 import java.util.ArrayList;
+import java.lang.reflect.Type;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -73,6 +74,7 @@ public class EntityManagerImpl implements EntityManager {
             for (int i = 0; i < fieldNames.size(); i++) {
                 Object fieldValue = getFieldValue(entity, fieldNames.get(i));
                 statement.setObject(i + 1, fieldValue);
+                String sqlQuery = statement.toString();
             }
             statement.executeUpdate();
             try (ResultSet generatedKeys = statement.getGeneratedKeys()) {
@@ -96,7 +98,7 @@ public class EntityManagerImpl implements EntityManager {
 
         try (PreparedStatement statement = connection.prepareStatement(sqlUpdate)) {
             for (int i = 0; i < fieldNames.size(); i++) {
-                if (fieldNames.get(i) != "id") {
+                if (!fieldNames.get(i).equals("id")) {
                     Object fieldValue = getFieldValue(entity, fieldNames.get(i));
                     statement.setObject(i + 1, fieldValue);
                 }
@@ -126,11 +128,30 @@ public class EntityManagerImpl implements EntityManager {
                 if (resultSet.next()) {
                     entity = entityClass.getDeclaredConstructor().newInstance();
                     for (int i = 0; i < fieldNames.size(); i++) {
-                        setFieldValue(entity, fieldNames.get(i), resultSet.getObject(fieldNames.get(i)));
+                        Field field = entityClass.getDeclaredField(fieldNames.get(i));
+
+                        Type fieldType = field.getGenericType();
+                        if (fieldType == int.class) {
+                            int value = resultSet.getInt(i + 1);
+                            setFieldValue(entity, fieldNames.get(i), resultSet.getInt(i + 1));
+                        } else if (fieldType == long.class) {
+                            long value = resultSet.getLong(i + 1);
+                            setFieldValue(entity, fieldNames.get(i), resultSet.getLong(i + 1));
+                        } else if (fieldType == String.class) {
+                            String value = resultSet.getString(i + 1);
+                            setFieldValue(entity, fieldNames.get(i), resultSet.getString(i + 1));
+                        } else if (fieldType == Double.class) {
+                            double value = resultSet.getDouble(i + 1);
+                            setFieldValue(entity, fieldNames.get(i), resultSet.getDouble(i + 1));
+                        }
                     }
                 }
+            } catch (Exception e) {
+                System.err.println("Erreur lors de la récupération des données : " + e.getMessage());
+                e.printStackTrace();
             }
         } catch (Exception e) {
+            System.err.println("Erreur lors de la récupération des données : " + e.getMessage());
             e.printStackTrace();
         }
 
@@ -230,7 +251,6 @@ public class EntityManagerImpl implements EntityManager {
         Field[] fields = entityClass.getDeclaredFields();
         for (Field field : fields) {
             String columnName;
-            String columnType;
             if (field.isAnnotationPresent(Column.class)) {
                 Column column = field.getAnnotation(Column.class);
                 columnName = column.name().isEmpty() ? field.getName() : column.name();
@@ -249,17 +269,26 @@ public class EntityManagerImpl implements EntityManager {
             throw new IllegalArgumentException("La classe " + entityClass.getName() + " n'est pas une entité");
         }
         String tableName = entityClass.getSimpleName();
-        StringBuilder sql = new StringBuilder("SELECT * FROM " + tableName);
+        StringBuilder sql = new StringBuilder("SELECT ");
         List<String> fieldNames = new ArrayList<>();
 
         Field[] fields = entityClass.getDeclaredFields();
         for (Field field : fields) {
             String columnName;
+            if (field.isAnnotationPresent(Id.class)) {
+                columnName = field.getName();
+                fieldNames.add(columnName);
+                sql.append(columnName).append(", ");
+            }
             if (field.isAnnotationPresent(Column.class)) {
-                fieldNames.add(field.getName());
+                Column column = field.getAnnotation(Column.class);
+                columnName = column.name().isEmpty() ? field.getName() : column.name();
+                fieldNames.add(columnName);
+                sql.append(columnName).append(", ");
             }
         }
-        sql.append(" WHERE id=?");
+        sql.setLength(sql.length() - 2);
+        sql.append(" FROM " + tableName + " WHERE id=?");
         return new Pair<>(sql.toString(), fieldNames);
     }
 

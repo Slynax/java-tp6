@@ -34,6 +34,7 @@ class AppTest {
 
         EntityManagerImpl em = new EntityManagerImpl();
         em.persist(club);
+        System.out.println(club.getId());
         Club trouve = em.<Club>find(Club.class, club.getId());
         assertNotNull(trouve);
         assertEquals(club.getFabricant(), trouve.getFabricant());

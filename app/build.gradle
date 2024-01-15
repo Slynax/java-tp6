@@ -35,6 +35,13 @@ dependencies {
     implementation 'javax.persistence:javax.persistence-api:2.2'
 }
 
+test {
+    testLogging {
+        showStandardStreams = true
+        events 'passed', 'skipped', 'failed', 'standardOut', 'standardError'
+    }
+}
+
 application {
     // Define the main class for the application.
     mainClass = 'tp6.App'
