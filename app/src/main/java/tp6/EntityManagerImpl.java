@@ -98,12 +98,10 @@ public class EntityManagerImpl implements EntityManager {
 
         try (PreparedStatement statement = connection.prepareStatement(sqlUpdate)) {
             for (int i = 0; i < fieldNames.size(); i++) {
-                if (!fieldNames.get(i).equals("id")) {
-                    Object fieldValue = getFieldValue(entity, fieldNames.get(i));
-                    statement.setObject(i + 1, fieldValue);
-                }
-                statement.setObject(fieldNames.size(), getFieldValue(entity, "id"));
+                Object fieldValue = getFieldValue(entity, fieldNames.get(i));
+                statement.setObject(i + 1, fieldValue);
             }
+            statement.setObject(fieldNames.size() + 1, getFieldValue(entity, "id"));
             statement.executeUpdate();
             connection.commit();
         } catch (SQLException e) {
@@ -147,11 +145,9 @@ public class EntityManagerImpl implements EntityManager {
                     }
                 }
             } catch (Exception e) {
-                System.err.println("Erreur lors de la récupération des données : " + e.getMessage());
                 e.printStackTrace();
             }
         } catch (Exception e) {
-            System.err.println("Erreur lors de la récupération des données : " + e.getMessage());
             e.printStackTrace();
         }
 
@@ -251,7 +247,11 @@ public class EntityManagerImpl implements EntityManager {
         Field[] fields = entityClass.getDeclaredFields();
         for (Field field : fields) {
             String columnName;
-            if (field.isAnnotationPresent(Column.class)) {
+            if (field.isAnnotationPresent(Id.class)) {
+                columnName = field.getName();
+                fieldNames.add(columnName);
+                sql.append(columnName).append("=? ,");
+            } else if (field.isAnnotationPresent(Column.class)) {
                 Column column = field.getAnnotation(Column.class);
                 columnName = column.name().isEmpty() ? field.getName() : column.name();
                 sql.append(columnName).append("=? ,");
@@ -279,8 +279,7 @@ public class EntityManagerImpl implements EntityManager {
                 columnName = field.getName();
                 fieldNames.add(columnName);
                 sql.append(columnName).append(", ");
-            }
-            if (field.isAnnotationPresent(Column.class)) {
+            } else if (field.isAnnotationPresent(Column.class)) {
                 Column column = field.getAnnotation(Column.class);
                 columnName = column.name().isEmpty() ? field.getName() : column.name();
                 fieldNames.add(columnName);

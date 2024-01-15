@@ -34,9 +34,24 @@ class AppTest {
 
         EntityManagerImpl em = new EntityManagerImpl();
         em.persist(club);
-        System.out.println(club.getId());
         Club trouve = em.<Club>find(Club.class, club.getId());
         assertNotNull(trouve);
         assertEquals(club.getFabricant(), trouve.getFabricant());
+    }
+
+    @Test
+    public void testMerge() throws SQLException {
+
+        Club club = new Club();
+        club.setFabricant("un  nom");
+        club.setPoids(10.3);
+
+        EntityManagerImpl em = new EntityManagerImpl();
+        em.persist(club);
+        club.setPoids(10.5);
+        em.merge(club);
+        Club trouve = em.<Club>find(Club.class, club.getId());
+        assertNotNull(trouve);
+        assertEquals(club.getPoids(), trouve.getPoids());
     }
 }
